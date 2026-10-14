@@ -35,4 +35,8 @@ module "ec2_instance" {
   key_name          = var.ec2_key_name
   instance_type     = var.ec2_instance_type
   public_key_path   = var.ssh_public_key_path
+  db_host           = module.rds.address
+  db_name           = var.db_name
+  db_user           = var.db_username
+  db_password       = var.db_password
 }

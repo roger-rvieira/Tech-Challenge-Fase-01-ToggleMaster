@@ -49,7 +49,13 @@ resource "aws_instance" "this" {
   vpc_security_group_ids      = [var.security_group_id]
   key_name                    = aws_key_pair.this.key_name
   associate_public_ip_address = true
-  user_data                   = null
+  user_data = templatefile("${path.module}/user_data.sh.tftpl", {
+    db_host      = var.db_host
+    db_name      = var.db_name
+    db_user      = var.db_user
+    db_password  = var.db_password
+    app_repo_url = var.app_repo_url
+  })
   user_data_replace_on_change = true
 
   metadata_options {

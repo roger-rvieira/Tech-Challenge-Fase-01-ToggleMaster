@@ -28,3 +28,34 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
+
+variable "db_host" {
+  description = "Hostname da instância RDS (sem a porta)."
+  type        = string
+  default     = ""
+}
+
+variable "db_name" {
+  description = "Nome inicial do banco de dados."
+  type        = string
+  default     = "appdb"
+}
+
+variable "db_user" {
+  description = "Usuário do banco de dados."
+  type        = string
+  default     = "dbadmin"
+}
+
+variable "db_password" {
+  description = "Senha do usuário administrador do banco de dados."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "app_repo_url" {
+  description = "URL do repositório da aplicação para clonar na EC2."
+  type        = string
+  default     = "https://github.com/dougls/toggle-master-monolith.git"
+}

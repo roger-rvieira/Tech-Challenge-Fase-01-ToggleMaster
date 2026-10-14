@@ -1,0 +1,80 @@
+#!/bin/bash
+set -euxo pipefail
+
+exec > >(tee -a /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+
+echo "==> Atualizando pacotes e instalando dependencias..."
+dnf update -y
+dnf install -y git python3 python3-pip
+
+APP_DIR="/home/ec2-user/toggle-master-monolith"
+
+echo "==> Clonando repositorio da aplicacao..."
+if [ ! -d "$APP_DIR" ]; then
+  git clone ${app_repo_url} "$APP_DIR"
+fi
+
+echo "==> Criando ambiente virtual Python e instalando dependencias..."
+python3 -m venv "$APP_DIR/venv"
+"$APP_DIR/venv/bin/pip" install --upgrade pip
+"$APP_DIR/venv/bin/pip" install -r "$APP_DIR/requirements.txt"
+
+echo "==> Configurando variaveis de ambiente..."
+cat <<EOF > "$APP_DIR/.env"
+DB_HOST=${db_host}
+DB_NAME=${db_name}
+DB_USER=${db_user}
+DB_PASSWORD=${db_password}
+EOF
+chmod 600 "$APP_DIR/.env"
+
+cat <<EOF >> /home/ec2-user/.bashrc
+export DB_HOST="${db_host}"
+export DB_NAME="${db_name}"
+export DB_USER="${db_user}"
+export DB_PASSWORD="${db_password}"
+EOF
+
+echo "==> Inicializando tabelas no RDS..."
+cd "$APP_DIR"
+set +e
+for i in $(seq 1 30); do
+  echo "Tentativa $i de conectar ao RDS e inicializar o banco..."
+  export DB_HOST="${db_host}"
+  export DB_NAME="${db_name}"
+  export DB_USER="${db_user}"
+  export DB_PASSWORD="${db_password}"
+  "$APP_DIR/venv/bin/flask" init-db
+  if [ $? -eq 0 ]; then
+    echo "Tabela 'flags' criada com sucesso no RDS!"
+    break
+  fi
+  sleep 5
+done
+set -e
+
+chown -R ec2-user:ec2-user "$APP_DIR"
+
+echo "==> Configurando servico systemd para o ToggleMaster..."
+cat <<'EOF' > /etc/systemd/system/toggle-master.service
+[Unit]
+Description=ToggleMaster Monolith Flask Service
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/toggle-master-monolith
+EnvironmentFile=/home/ec2-user/toggle-master-monolith/.env
+ExecStart=/home/ec2-user/toggle-master-monolith/venv/bin/gunicorn --bind 0.0.0.0:5000 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable toggle-master.service
+systemctl start toggle-master.service
+
+echo "==> Deploy do ToggleMaster concluido com sucesso!"
