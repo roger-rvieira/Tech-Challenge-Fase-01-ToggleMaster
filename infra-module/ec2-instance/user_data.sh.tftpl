@@ -51,7 +51,7 @@ for i in \$(seq 1 30); do
   sleep 5
 done
 
-exec "\$APP_DIR/venv/bin/gunicorn" --bind 0.0.0.0:5000 app:app
+exec "\$APP_DIR/venv/bin/gunicorn" --workers 3 --threads 2 --access-logfile - --error-logfile - --bind 0.0.0.0:5000 app:app
 EOF
 
 chmod 755 /usr/local/bin/start-toggle-master.sh
