@@ -56,6 +56,27 @@ resource "aws_db_instance" "this" {
   }
 }
 
+resource "aws_secretsmanager_secret" "db_credentials" {
+  name                    = "${var.name}/rds/credentials"
+  description             = "Credenciais de conexao ao banco de dados RDS (${var.db_identifier})"
+  recovery_window_in_days = 0
+
+  tags = {
+    Name = "${var.name}-rds-credentials"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "db_credentials" {
+  secret_id = aws_secretsmanager_secret.db_credentials.id
+  secret_string = jsonencode({
+    DB_HOST     = aws_db_instance.this.address
+    DB_PORT     = tostring(aws_db_instance.this.port)
+    DB_NAME     = var.db_name
+    DB_USER     = var.db_username
+    DB_PASSWORD = var.db_password
+  })
+}
+
 locals {
   database_port = var.db_engine == "postgres" ? 5432 : 3306
 }

@@ -1,11 +1,11 @@
 # Execucao do projeto Terraform
 
-Este projeto cria uma VPC com sub-redes publicas e privadas, uma EC2 publica e um RDS privado. O PostgreSQL e o banco padrao; MySQL tambem pode ser selecionado. A EC2 nao instala nem executa uma aplicacao.
+Este projeto cria uma VPC com sub-redes publicas e privadas, uma EC2 publica com a aplicacao ToggleMaster instalada via `user_data` (Gunicorn + systemd na porta 5000), um RDS privado e um segredo no **AWS Secrets Manager** acessado pela EC2 via **IAM Role**. O PostgreSQL e o banco padrao; MySQL tambem pode ser selecionado.
 
 ## Pre-requisitos
 
 - Terraform 1.5 ou superior.
-- AWS CLI configurado com credenciais que possam criar VPC, sub-redes, rotas, Security Groups, EC2 e RDS.
+- AWS CLI configurado com credenciais que possam criar VPC, sub-redes, rotas, Security Groups, IAM Role/Instance Profile, Secrets Manager, EC2 e RDS.
 - Permissoes AWS para criar key pairs EC2, chaves KMS e parametros SSM SecureString.
 - O IP publico de origem do SSH, informado como CIDR `/32`.
 
@@ -86,9 +86,10 @@ terraform -chdir=infra-live output
 terraform -chdir=infra-live output -raw ec2_public_ip
 terraform -chdir=infra-live output -raw ec2_public_dns
 terraform -chdir=infra-live output -raw rds_endpoint
+terraform -chdir=infra-live output -raw rds_secret_name
 ```
 
-A EC2 nao executa servidor web. As portas 80 e 443 estao liberadas no Security Group, mas nao ha aplicacao ou servico HTTP configurado nelas. Para recuperar a chave privada do SSM e usa-la por SSH:
+A EC2 executa o servico `toggle-master.service` na porta `5000`, buscando as credenciais do banco diretamente no **AWS Secrets Manager** via IAM Role (sem gravar `.env` em disco e sem expor a senha no `user_data`). Para recuperar a chave privada do SSM e usa-la por SSH:
 
 ```sh
 umask 077

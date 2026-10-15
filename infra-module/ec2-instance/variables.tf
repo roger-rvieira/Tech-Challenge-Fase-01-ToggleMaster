@@ -29,29 +29,20 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
-variable "db_host" {
-  description = "Hostname da instância RDS (sem a porta)."
+variable "aws_region" {
+  description = "Região AWS onde o segredo está armazenado."
   type        = string
-  default     = ""
+  default     = "us-east-1"
 }
 
-variable "db_name" {
-  description = "Nome inicial do banco de dados."
+variable "db_secret_arn" {
+  description = "ARN do segredo no AWS Secrets Manager contendo as credenciais do banco."
   type        = string
-  default     = "appdb"
 }
 
-variable "db_user" {
-  description = "Usuário do banco de dados."
+variable "db_secret_name" {
+  description = "Nome do segredo no AWS Secrets Manager contendo as credenciais do banco."
   type        = string
-  default     = "dbadmin"
-}
-
-variable "db_password" {
-  description = "Senha do usuário administrador do banco de dados."
-  type        = string
-  default     = ""
-  sensitive   = true
 }
 
 variable "app_repo_url" {

@@ -28,6 +28,21 @@ output "rds_security_group_id" {
   value       = module.rds.security_group_id
 }
 
+output "rds_secret_name" {
+  description = "Nome do segredo no AWS Secrets Manager com as credenciais do RDS."
+  value       = module.rds.secret_name
+}
+
+output "rds_secret_arn" {
+  description = "ARN do segredo no AWS Secrets Manager com as credenciais do RDS."
+  value       = module.rds.secret_arn
+}
+
+output "ec2_iam_role_name" {
+  description = "Nome da IAM Role anexada na EC2 para ler o AWS Secrets Manager."
+  value       = module.ec2_instance.iam_role_name
+}
+
 output "ec2_instance_id" {
   description = "ID da instância EC2."
   value       = module.ec2_instance.instance_id

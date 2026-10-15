@@ -32,3 +32,8 @@ output "private_key_parameter_name" {
   description = "Nome do parametro SSM SecureString usado para armazenar a chave privada."
   value       = "/${var.name}/ec2/ssh-private-key"
 }
+
+output "iam_role_name" {
+  description = "Nome da IAM Role anexada na EC2 para leitura no AWS Secrets Manager."
+  value       = aws_iam_role.ec2_secrets_role.name
+}

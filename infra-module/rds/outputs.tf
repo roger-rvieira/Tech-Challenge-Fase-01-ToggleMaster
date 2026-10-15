@@ -17,3 +17,13 @@ output "security_group_id" {
   description = "ID do security group do RDS."
   value       = aws_security_group.this.id
 }
+
+output "secret_arn" {
+  description = "ARN do segredo no AWS Secrets Manager com as credenciais do banco."
+  value       = aws_secretsmanager_secret.db_credentials.arn
+}
+
+output "secret_name" {
+  description = "Nome do segredo no AWS Secrets Manager com as credenciais do banco."
+  value       = aws_secretsmanager_secret.db_credentials.name
+}

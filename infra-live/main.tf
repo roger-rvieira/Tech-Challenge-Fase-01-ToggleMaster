@@ -30,13 +30,12 @@ module "rds" {
 module "ec2_instance" {
   source            = "../infra-module/ec2-instance"
   name              = var.project_name
+  aws_region        = var.aws_region
   public_subnet_id  = module.vpc.public_subnet_ids[0]
   security_group_id = module.ec2_security_group.security_group_id
   key_name          = var.ec2_key_name
   instance_type     = var.ec2_instance_type
   public_key_path   = var.ssh_public_key_path
-  db_host           = module.rds.address
-  db_name           = var.db_name
-  db_user           = var.db_username
-  db_password       = var.db_password
+  db_secret_arn     = module.rds.secret_arn
+  db_secret_name    = module.rds.secret_name
 }

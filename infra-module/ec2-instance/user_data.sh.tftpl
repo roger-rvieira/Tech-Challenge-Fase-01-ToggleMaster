@@ -5,7 +5,7 @@ exec > >(tee -a /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 
 
 echo "==> Atualizando pacotes e instalando dependencias..."
 dnf update -y
-dnf install -y git python3 python3-pip
+dnf install -y git python3 python3-pip jq awscli
 
 APP_DIR="/home/ec2-user/toggle-master-monolith"
 
@@ -19,53 +19,55 @@ python3 -m venv "$APP_DIR/venv"
 "$APP_DIR/venv/bin/pip" install --upgrade pip
 "$APP_DIR/venv/bin/pip" install -r "$APP_DIR/requirements.txt"
 
-echo "==> Configurando variaveis de ambiente..."
-cat <<EOF > "$APP_DIR/.env"
-DB_HOST=${db_host}
-DB_NAME=${db_name}
-DB_USER=${db_user}
-DB_PASSWORD=${db_password}
-EOF
-chmod 600 "$APP_DIR/.env"
+echo "==> Criando script de inicializacao que busca credenciais no AWS Secrets Manager via IAM Role..."
+cat <<EOF > /usr/local/bin/start-toggle-master.sh
+#!/bin/bash
+set -euo pipefail
 
-cat <<EOF >> /home/ec2-user/.bashrc
-export DB_HOST="${db_host}"
-export DB_NAME="${db_name}"
-export DB_USER="${db_user}"
-export DB_PASSWORD="${db_password}"
-EOF
+AWS_REGION="${aws_region}"
+SECRET_NAME="${db_secret_name}"
+APP_DIR="/home/ec2-user/toggle-master-monolith"
 
-echo "==> Inicializando tabelas no RDS..."
-cd "$APP_DIR"
-set +e
-for i in $(seq 1 30); do
-  echo "Tentativa $i de conectar ao RDS e inicializar o banco..."
-  export DB_HOST="${db_host}"
-  export DB_NAME="${db_name}"
-  export DB_USER="${db_user}"
-  export DB_PASSWORD="${db_password}"
-  "$APP_DIR/venv/bin/flask" init-db
-  if [ $? -eq 0 ]; then
-    echo "Tabela 'flags' criada com sucesso no RDS!"
+echo "Consultando credenciais do RDS no AWS Secrets Manager (\$SECRET_NAME)..."
+SECRET_JSON=\$(aws secretsmanager get-secret-value \
+  --region "\$AWS_REGION" \
+  --secret-id "\$SECRET_NAME" \
+  --query SecretString \
+  --output text)
+
+export DB_HOST=\$(echo "\$SECRET_JSON" | jq -r '.DB_HOST')
+export DB_NAME=\$(echo "\$SECRET_JSON" | jq -r '.DB_NAME')
+export DB_USER=\$(echo "\$SECRET_JSON" | jq -r '.DB_USER')
+export DB_PASSWORD=\$(echo "\$SECRET_JSON" | jq -r '.DB_PASSWORD')
+
+cd "\$APP_DIR"
+
+for i in \$(seq 1 30); do
+  if "\$APP_DIR/venv/bin/flask" init-db; then
+    echo "Tabela 'flags' validada/criada com sucesso no RDS!"
     break
   fi
+  echo "Tentativa \$i: aguardando disponibilidade do RDS..."
   sleep 5
 done
-set -e
 
+exec "\$APP_DIR/venv/bin/gunicorn" --bind 0.0.0.0:5000 app:app
+EOF
+
+chmod 755 /usr/local/bin/start-toggle-master.sh
 chown -R ec2-user:ec2-user "$APP_DIR"
 
 echo "==> Configurando servico systemd para o ToggleMaster..."
 cat <<'EOF' > /etc/systemd/system/toggle-master.service
 [Unit]
-Description=ToggleMaster Monolith Flask Service
-After=network.target
+Description=ToggleMaster Monolith Flask Service (AWS Secrets Manager)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=ec2-user
 WorkingDirectory=/home/ec2-user/toggle-master-monolith
-EnvironmentFile=/home/ec2-user/toggle-master-monolith/.env
-ExecStart=/home/ec2-user/toggle-master-monolith/venv/bin/gunicorn --bind 0.0.0.0:5000 app:app
+ExecStart=/usr/local/bin/start-toggle-master.sh
 Restart=always
 RestartSec=5
 
